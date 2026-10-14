@@ -40,3 +40,9 @@ export function mismoDiaDelMesSiguiente(fecha: string): string {
     new Date(Date.UTC(anio, mes, Math.min(dia, ultimoDiaMesSiguiente))),
   );
 }
+
+// "YYYY-MM-DD" → "DD/MM/YYYY"
+export function formatearFecha(fecha: string): string {
+  const [anio, mes, dia] = fecha.split("-");
+  return `${dia}/${mes}/${anio}`;
+}

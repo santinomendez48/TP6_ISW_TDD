@@ -22,3 +22,7 @@ export class EdadInvalidaError extends ErrorDeNegocio {}
 export class TipoPaseInvalidoError extends ErrorDeNegocio {}
 
 export class LimiteAcumuladoExcedidoError extends ErrorDeNegocio {}
+
+export class FormaPagoInvalidaError extends ErrorDeNegocio {}
+
+export class UsuarioNoRegistradoError extends ErrorDeNegocio {}
