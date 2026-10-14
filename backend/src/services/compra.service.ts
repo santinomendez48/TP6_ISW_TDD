@@ -1,7 +1,6 @@
 import type { Reloj } from "../config/reloj";
 import type { EntradaSolicitada } from "../entities/entrada-solicitada";
-import { FormaPago } from "../entities/forma-pago";
-import { TipoPase } from "../entities/tipo-pase";
+import { FormaPago, esFormaPago } from "../entities/forma-pago";
 import type { Usuario } from "../entities/usuario";
 import {
   FormaPagoInvalidaError,
@@ -17,8 +16,12 @@ import {
   validarEntradas,
   validarLimiteAcumulado,
 } from "../rules/limites-compra";
-import { calcularPrecioEntrada } from "../rules/precios";
+import { calcularPrecioEntrada, calcularTotal } from "../rules/precios";
 import { formatearFecha } from "../utils/fechas";
+import {
+  construirMailConfirmacion,
+  construirMensajeConfirmacion,
+} from "./resumen-compra";
 
 export interface SolicitudCompra {
   usuarioId: number;
@@ -45,48 +48,80 @@ export interface DependenciasCompraService {
   reloj: Reloj;
 }
 
-const FORMAS_DE_PAGO: string[] = Object.values(FormaPago);
-
-const NOMBRES_PASE: Record<TipoPase, string> = {
-  [TipoPase.COMUN]: "Común",
-  [TipoPase.VIP]: "VIP",
-};
-
-const NOMBRES_FORMA_PAGO: Record<FormaPago, string> = {
-  [FormaPago.EFECTIVO]: "Efectivo (se abona en boletería)",
-  [FormaPago.TARJETA]: "Tarjeta (Mercado Pago)",
-};
-
-function formatearMonto(monto: number): string {
-  return `$${monto.toLocaleString("es-AR")}`;
-}
-
+/**
+ * Caso de uso "Comprar entradas".
+ * Orden: validar → cobrar (si es con tarjeta) → registrar → notificar.
+ * Si algo falla antes de registrar, no se cobra ni se envía mail.
+ */
 export class CompraService {
   constructor(private readonly dependencias: DependenciasCompraService) {}
 
   async comprar(solicitud: SolicitudCompra): Promise<ResultadoCompra> {
-    const {
-      compraRepository,
-      usuarioRepository,
-      pasarelaPago,
-      notificador,
-      reloj,
-    } = this.dependencias;
-    const { usuarioId, fechaVisita, formaPago, entradas } = solicitud;
+    const { compraRepository, notificador } = this.dependencias;
+    const { usuarioId, fechaVisita, entradas } = solicitud;
 
-    const usuario: Usuario | null =
-      await usuarioRepository.buscarPorId(usuarioId);
+    const usuario = await this.buscarUsuarioRegistrado(usuarioId);
+    const formaPago = CompraService.validarFormaPago(solicitud.formaPago);
+    await this.validarEntradasYFecha(solicitud);
+
+    const total = calcularTotal(entradas);
+    const urlRedireccion = await this.cobrar(
+      formaPago,
+      total,
+      usuario,
+      solicitud,
+    );
+
+    const compra = await compraRepository.guardar({
+      usuarioId,
+      fechaVisita,
+      formaPago,
+      entradas: entradas.map((e) => ({
+        ...e,
+        precio: calcularPrecioEntrada(e),
+      })),
+      total,
+    });
+
+    await notificador.enviar(construirMailConfirmacion(compra, usuario));
+
+    return {
+      compraId: compra.id,
+      cantidadEntradas: compra.entradas.length,
+      fechaVisita: compra.fechaVisita,
+      total: compra.total,
+      urlRedireccion,
+      emailConfirmacion: usuario.email,
+      mensaje: construirMensajeConfirmacion(compra),
+    };
+  }
+
+  private async buscarUsuarioRegistrado(usuarioId: number): Promise<Usuario> {
+    const usuario =
+      await this.dependencias.usuarioRepository.buscarPorId(usuarioId);
     if (!usuario) {
       throw new UsuarioNoRegistradoError(
         "Sólo los usuarios registrados pueden comprar entradas",
       );
     }
+    return usuario;
+  }
 
-    if (formaPago === undefined || !FORMAS_DE_PAGO.includes(formaPago)) {
+  private static validarFormaPago(formaPago: unknown): FormaPago {
+    if (!esFormaPago(formaPago)) {
       throw new FormaPagoInvalidaError(
         "Debe seleccionar una forma de pago: efectivo o tarjeta",
       );
     }
+    return formaPago;
+  }
+
+  private async validarEntradasYFecha({
+    usuarioId,
+    fechaVisita,
+    entradas,
+  }: SolicitudCompra): Promise<void> {
+    const { compraRepository, reloj } = this.dependencias;
 
     validarEntradas(entradas);
     validarFechaVisita(fechaVisita, reloj.ahora());
@@ -97,66 +132,27 @@ export class CompraService {
       ),
       entradas.length,
     );
+  }
 
-    const entradasConPrecio = entradas.map((entrada) => ({
-      ...entrada,
-      precio: calcularPrecioEntrada(entrada),
-    }));
-    const total = entradasConPrecio.reduce((suma, e) => suma + e.precio, 0);
-
-    // Se cobra antes de registrar: si el pago es rechazado no queda compra
-    let urlRedireccion: string | null = null;
-    if (formaPago === FormaPago.TARJETA) {
-      const pago = await pasarelaPago.pagar({
-        monto: total,
-        email: usuario.email,
-        descripcion: `${entradas.length} entradas EcoHarmony Park - ${formatearFecha(fechaVisita)}`,
-      });
-      if (!pago.aprobado) {
-        throw new PagoRechazadoError("El pago con tarjeta fue rechazado");
-      }
-      urlRedireccion = pago.urlRedireccion;
+  // Devuelve la URL de Mercado Pago a la que se redirige, o null si es efectivo
+  private async cobrar(
+    formaPago: FormaPago,
+    total: number,
+    usuario: Usuario,
+    { fechaVisita, entradas }: SolicitudCompra,
+  ): Promise<string | null> {
+    if (formaPago !== FormaPago.TARJETA) {
+      return null;
     }
 
-    const compra = await compraRepository.guardar({
-      usuarioId,
-      fechaVisita,
-      formaPago,
-      entradas: entradasConPrecio,
-      total,
+    const pago = await this.dependencias.pasarelaPago.pagar({
+      monto: total,
+      email: usuario.email,
+      descripcion: `${entradas.length} entradas EcoHarmony Park - ${formatearFecha(fechaVisita)}`,
     });
-
-    const detalle = compra.entradas
-      .map(
-        (e, i) =>
-          `Visitante ${i + 1}: ${e.edad} años - Pase ${NOMBRES_PASE[e.tipoPase]} - ${formatearMonto(e.precio)}`,
-      )
-      .join("\n");
-
-    await notificador.enviar({
-      destinatario: usuario.email,
-      asunto: `Confirmación de compra #${compra.id} - EcoHarmony Park`,
-      cuerpo: [
-        `¡Hola ${usuario.nombre}! Tu compra fue registrada.`,
-        "",
-        `Cantidad de entradas: ${compra.entradas.length}`,
-        `Fecha de visita: ${formatearFecha(compra.fechaVisita)}`,
-        "",
-        detalle,
-        "",
-        `Forma de pago: ${NOMBRES_FORMA_PAGO[compra.formaPago]}`,
-        `Total: ${formatearMonto(compra.total)}`,
-      ].join("\n"),
-    });
-
-    return {
-      compraId: compra.id,
-      cantidadEntradas: compra.entradas.length,
-      fechaVisita: compra.fechaVisita,
-      total: compra.total,
-      urlRedireccion,
-      emailConfirmacion: usuario.email,
-      mensaje: `Compraste ${compra.entradas.length} entradas para el ${formatearFecha(compra.fechaVisita)}`,
-    };
+    if (!pago.aprobado) {
+      throw new PagoRechazadoError("El pago con tarjeta fue rechazado");
+    }
+    return pago.urlRedireccion;
   }
 }
