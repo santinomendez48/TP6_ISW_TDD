@@ -16,3 +16,7 @@ export class ParqueCerradoError extends ErrorDeNegocio {}
 export class HorarioDeCompraVencidoError extends ErrorDeNegocio {}
 
 export class CantidadInvalidaError extends ErrorDeNegocio {}
+
+export class EdadInvalidaError extends ErrorDeNegocio {}
+
+export class TipoPaseInvalidoError extends ErrorDeNegocio {}
