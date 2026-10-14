@@ -6,6 +6,21 @@ const PRECIOS_BASE: Record<TipoPase, number> = {
   [TipoPase.VIP]: 20000,
 };
 
+const EDAD_MAXIMA_GRATIS = 3;
+const EDAD_MAXIMA_MENOR = 15;
+const EDAD_MINIMA_MAYOR = 60;
+const FACTOR_MEDIO_PRECIO = 0.5;
+
 export function calcularPrecioEntrada(entrada: EntradaSolicitada): number {
-  return PRECIOS_BASE[entrada.tipoPase];
+  const precioBase = PRECIOS_BASE[entrada.tipoPase];
+
+  if (entrada.edad <= EDAD_MAXIMA_GRATIS) {
+    return 0;
+  }
+
+  if (entrada.edad <= EDAD_MAXIMA_MENOR || entrada.edad >= EDAD_MINIMA_MAYOR) {
+    return precioBase * FACTOR_MEDIO_PRECIO;
+  }
+
+  return precioBase;
 }
