@@ -3,11 +3,13 @@ import { TipoPase } from "../entities/tipo-pase";
 import {
   CantidadInvalidaError,
   EdadInvalidaError,
+  LimiteAcumuladoExcedidoError,
   TipoPaseInvalidoError,
 } from "../errors/errores-negocio";
 
 const MIN_ENTRADAS_POR_COMPRA = 1;
 const MAX_ENTRADAS_POR_COMPRA = 10;
+const MAX_ENTRADAS_POR_USUARIO_Y_FECHA = 10;
 const EDAD_MINIMA = 0;
 const EDAD_MAXIMA = 120;
 
@@ -38,4 +40,19 @@ export function validarEntradas(entradas: EntradaSolicitada[]): void {
       );
     }
   });
+}
+
+export function validarLimiteAcumulado(
+  yaCompradas: number,
+  nuevas: number,
+): void {
+  if (yaCompradas + nuevas > MAX_ENTRADAS_POR_USUARIO_Y_FECHA) {
+    const disponibles = Math.max(
+      MAX_ENTRADAS_POR_USUARIO_Y_FECHA - yaCompradas,
+      0,
+    );
+    throw new LimiteAcumuladoExcedidoError(
+      `Sólo se pueden comprar ${MAX_ENTRADAS_POR_USUARIO_Y_FECHA} entradas por fecha; quedan ${disponibles} disponibles`,
+    );
+  }
 }
