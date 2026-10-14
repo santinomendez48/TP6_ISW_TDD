@@ -130,7 +130,7 @@ Los commits se hacen en el orden real en que se trabaja (sin modificar fechas). 
 
 ## 6. Secuencia de ciclos TDD
 
-Para no generar demasiados commits, **los ciclos se agrupan por módulo**: un commit `test:` con todos los tests del módulo (Red), uno o más commits `feat:` que los van haciendo pasar por partes (Green) y un `refactor:` cuando corresponde. Los commits `feat:` intermedios pueden dejar tests del mismo módulo todavía en rojo; el último `feat:` del módulo deja toda la suite en verde.
+Para no generar demasiados commits, **en todas las fases los ciclos se agrupan por módulo**: un commit `test:` con todos los tests del módulo (Red), uno o más commits `feat:` que los van haciendo pasar por partes (Green) y un `refactor:` cuando corresponde. Los commits `feat:` intermedios pueden dejar tests del mismo módulo todavía en rojo; el último `feat:` del módulo deja toda la suite en verde.
 
 Ejemplo de un ciclo en el historial:
 
@@ -182,55 +182,43 @@ refactor: extraer descuentos como lista de reglas
 
 Incluye las 4 **pruebas de usuario** de la US (marcadas con ★).
 
-| # | Red | Green | Refactor |
-|---|---|---|---|
-| 4.1 | Compra válida en efectivo: se guarda y devuelve cantidad + fecha | `CompraService.comprar` + `CompraRepository` (interfaz) | — |
-| 4.2 | ★ Compra sin forma de pago → falla | Validación forma de pago | — |
-| 4.3 | ★ Compra en fecha con parque cerrado → falla | Usa `rules/calendario-parque` | — |
-| 4.4 | ★ Compra de más de 10 entradas → falla | Usa `rules/limites-compra` | — |
-| 4.5 | Supera el límite acumulado por usuario/fecha → falla | `CompraRepository.contarPorUsuarioYFecha` | — |
-| 4.6 | Usuario no registrado → falla | `UsuarioRepository` (interfaz) | — |
-| 4.7 | ★ Compra válida con tarjeta: autoriza en Mercado Pago, devuelve URL de redirección y envía mail | `PasarelaPago` + `Notificador` | — |
-| 4.8 | El mail contiene cantidad, fecha, detalle por visitante, subtotales y total | Plantilla del mail | Extraer `construirResumen` |
-| 4.9 | Pago con tarjeta rechazado → falla, no se guarda ni se envía mail | Manejo de rechazo | — |
-| 4.10 | Si una validación falla, no se llama a la pasarela, al repositorio ni al notificador | Orden validar → pagar → guardar → notificar | Simplificar el flujo del service |
+| Commit | Contenido |
+|---|---|
+| `test: servicio de compra de entradas` | Compra válida en efectivo (se guarda y devuelve cantidad, fecha y total, sin redirección); ★ sin forma de pago → falla; ★ fecha con parque cerrado → falla; ★ más de 10 entradas → falla; supera el límite acumulado por usuario/fecha → falla; usuario no registrado → falla; ★ compra con tarjeta (autoriza en Mercado Pago, devuelve URL de redirección y envía mail); el mail incluye cantidad, fecha, detalle por visitante, subtotales y total; pago rechazado → falla sin guardar ni enviar mail; si una validación falla no se llama a la pasarela, al repositorio ni al notificador |
+| `feat: registrar compra validando reglas de negocio` | `CompraService.comprar`, `CompraRepository`, `UsuarioRepository`, `Reloj`, `FormaPago`, uso de `rules/` |
+| `feat: procesar pago con tarjeta y enviar confirmación por mail` | `PasarelaPago`, `Notificador`, plantilla del mail, orden validar → pagar → guardar → notificar |
+| `refactor: extraer construcción del resumen de compra` | `construirResumen` reutilizado por el resultado y el mail |
 
 ### Fase 5 – Infraestructura y API
 
-| # | Red | Green | Refactor |
-|---|---|---|---|
-| 5.1 | Repositorios en memoria: guardar compra y contar por usuario/fecha | `repositories/memoria/` | — |
-| 5.2 | `MercadoPagoSimulado` y `NotificadorMailSimulado` cumplen su interfaz | `integrations/` | — |
-| 5.3 | `POST /compras` válido → 201 con cantidad, fecha y total | `compra.controller` + `routes` + `app` | — |
-| 5.4 | Body inválido (sin forma de pago, sin edades, etc.) → 400 con mensaje | `dtos/compra.request.dto.ts` (zod) | — |
-| 5.5 | Errores de negocio → 422; usuario no registrado → 401; pago rechazado → 402 | Middleware de errores | Mapa error → status |
-| 5.6 | `POST /compras/cotizar` devuelve subtotales y total | Endpoint de cotización | — |
-| 5.7 | `GET /calendario` devuelve los días del próximo mes indicando si están habilitados | `calendario.service` + controller | — |
+| Commit | Contenido |
+|---|---|
+| `test: adaptadores en memoria y simulados` | Repositorios en memoria (guardar, contar por usuario/fecha, buscar usuario); `MercadoPagoSimulado`; `NotificadorMailSimulado`; `RelojSistema` en zona Argentina |
+| `feat: implementar repositorios en memoria e integraciones simuladas` | `repositories/memoria/`, `integrations/`, `config/reloj.ts` |
+| `test: endpoints de compra, cotización y calendario` | `POST /compras` válido → 201; body inválido → 400; errores de negocio → 422; usuario no registrado → 401; pago rechazado → 402; `POST /compras/cotizar` → subtotales y total; `GET /calendario` → días del próximo mes con su estado |
+| `feat: exponer API de compra de entradas` | `dtos/` (zod), `controllers/`, `routes.ts`, `app.ts`, middleware de errores |
+| `feat: exponer cotización y calendario` | Endpoints de cotización y calendario, `calendario.service` |
+| `refactor: …` | Sólo si hace falta (p. ej. mapa error → status) |
 
 ### Fase 6 – Frontend (Testing Library, API mockeada)
 
-| # | Red | Green |
-|---|---|---|
-| 6.1 | — | `chore: scaffold de frontend (Vite + React), paleta FAQ 3 y fuente Lato` |
-| 6.2 | El calendario deshabilita lunes, feriados y fechas fuera de rango | `Calendario` |
-| 6.3 | Selector de cantidad entre 1 y 10; genera un formulario (edad + pase) por entrada | `SelectorCantidad` + `FormularioVisitante` |
-| 6.4 | El botón Confirmar está deshabilitado sin forma de pago | `SelectorFormaPago` |
-| 6.5 | Muestra el total cotizado por la API | Integración con `services/` |
-| 6.6 | Con tarjeta, redirige a la pantalla "Mercado Pago – Compra exitosa" | `MercadoPagoSimulado` |
-| 6.7 | La confirmación muestra cantidad y fecha, y el modal "Mail enviado a …" | `Confirmacion` |
-| 6.8 | Muestra el mensaje de error devuelto por la API | Manejo de errores |
-
-Refactors de frontend según aparezcan (extraer hooks, componentes, etc.).
+| Commit | Contenido |
+|---|---|
+| `chore: inicializar frontend con Vite, React y Testing Library` | Scaffold, paleta FAQ 3, fuente Lato |
+| `test: formulario de compra de entradas` | Calendario deshabilita lunes, feriados y fechas fuera de rango; cantidad entre 1 y 10 con un formulario (edad + pase) por entrada; Confirmar deshabilitado sin forma de pago; muestra el total cotizado |
+| `feat: formulario de compra de entradas` | `Calendario`, `SelectorCantidad`, `FormularioVisitante`, `SelectorFormaPago`, cliente de la API |
+| `test: confirmación de compra y pago simulado` | Con tarjeta muestra "Mercado Pago – Compra exitosa"; la confirmación muestra cantidad y fecha y el modal "Mail enviado a …"; muestra los errores devueltos por la API |
+| `feat: confirmación de compra y pago simulado` | `Confirmacion`, `MercadoPagoSimulado`, manejo de errores |
+| `refactor: …` | Sólo si hace falta (p. ej. extraer hooks) |
 
 ### Fase 7 – Cierre
 
-| # | Commit |
+| Commit | Contenido |
 |---|---|
-| 7.1 | `docs: README con instrucciones de instalación, ejecución y tests` |
-| 7.2 | `docs: documento de decisiones de diseño (TP-Grupal_6_Test_Driven_Development_TDD_G3)` |
-| 7.3 | `chore: reporte de cobertura` (opcional) |
+| `docs: README con instrucciones de instalación, ejecución y tests` | |
+| `docs: documento de decisiones de diseño` | `docs/TP-Grupal_6_Test_Driven_Development_TDD_G3.md` |
 
-**Total estimado:** ~40 commits (fases 1–3 agrupadas por módulo).
+**Total estimado:** ~35 commits.
 
 ---
 
