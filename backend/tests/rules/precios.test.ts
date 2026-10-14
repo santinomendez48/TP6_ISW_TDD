@@ -25,7 +25,7 @@ describe("calcularPrecioEntrada", () => {
       [3, TipoPase.COMUN],
       [0, TipoPase.VIP],
       [3, TipoPase.VIP],
-    ])("%i años con pase %s paga $0", (edad, tipoPase) => {
+    ])("%i años con pase %s no paga", (edad, tipoPase) => {
       expect(calcularPrecioEntrada(entrada(edad, tipoPase))).toBe(0);
     });
   });
