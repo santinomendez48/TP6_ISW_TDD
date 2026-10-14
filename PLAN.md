@@ -130,16 +130,16 @@ Los commits se hacen en el orden real en que se trabaja (sin modificar fechas). 
 
 ## 6. Secuencia de ciclos TDD
 
-Leyenda: cada fila es un ciclo → 1 commit `test:` (Red) + 1 commit `feat:` (Green) (+ 1 `refactor:` cuando se indica).
+Para no generar demasiados commits, **los ciclos se agrupan por módulo**: un commit `test:` con todos los tests del módulo (Red), uno o más commits `feat:` que los van haciendo pasar por partes (Green) y un `refactor:` cuando corresponde. Los commits `feat:` intermedios pueden dejar tests del mismo módulo todavía en rojo; el último `feat:` del módulo deja toda la suite en verde.
 
 Ejemplo de un ciclo en el historial:
 
 ```
-test: precio de entrada Común para un adulto
-feat: calcular precio de entrada Común
-test: precio de entrada VIP para un adulto
-feat: calcular precio según tipo de pase
-refactor: extraer tabla de precios base
+test: reglas de precios por tipo de pase y edad
+feat: calcular precio de entrada por tipo de pase
+feat: aplicar descuentos por edad
+feat: calcular total de la compra
+refactor: extraer descuentos como lista de reglas
 ```
 
 ### Fase 0 – Setup
@@ -150,33 +150,33 @@ refactor: extraer tabla de precios base
 
 ### Fase 1 – Reglas de precios (`rules/precios.ts`, `entities/`)
 
-| # | Red (test que falla) | Green | Refactor |
-|---|---|---|---|
-| 1.1 | Adulto con pase Común cuesta 10000 | Devolver constante | — |
-| 1.2 | Adulto con pase VIP cuesta 20000 | Condicional por tipo | Tabla `PRECIOS_BASE` + enum `TipoPase` en `entities/` |
-| 1.3 | Visitante de 3 años no paga / 4 años paga | Regla gratis | — |
-| 1.4 | 15 años paga 50% / 16 años paga completo | Regla menor | — |
-| 1.5 | 60 años paga 50% / 59 años paga completo | Regla mayor | Reglas de descuento como lista de políticas |
-| 1.6 | Total de un grupo mixto (edades y pases variados) | `calcularTotal` | — |
+| Commit | Contenido |
+|---|---|
+| `test: reglas de precios por tipo de pase y edad` | Común adulto 10000; VIP adulto 20000; 0 y 3 años gratis; 4 y 15 años 50%; 16 y 59 años completo; 60 años 50% (ambos pases); total de un grupo mixto; total de una lista vacía = 0 |
+| `feat: calcular precio de entrada por tipo de pase` | `TipoPase` y `EntradaSolicitada` en `entities/`, `calcularPrecioEntrada` con tabla `PRECIOS_BASE` |
+| `feat: aplicar descuentos por edad` | Gratis ≤ 3, 50% ≤ 15, 50% ≥ 60 |
+| `feat: calcular total de la compra` | `calcularTotal` |
+| `refactor: extraer descuentos como lista de reglas` | Descuentos como lista ordenada de reglas `{ aplica, factor }` |
 
-### Fase 2 – Reglas de calendario y fecha (`rules/calendario-parque.ts`, `config/reloj.ts`)
+### Fase 2 – Reglas de calendario y fecha (`rules/calendario-parque.ts`, `errors/`)
 
-| # | Red | Green | Refactor |
-|---|---|---|---|
-| 2.1 | Un lunes el parque está cerrado | `estaAbierto(fecha)` | — |
-| 2.2 | 25/12 y 1/1 cerrados en cualquier año | Feriados fijos | Constante `FERIADOS_FIJOS` |
-| 2.3 | Fecha anterior a hoy es rechazada (Reloj fake) | Interfaz `Reloj` + validación | — |
-| 2.4 | Hoy aceptada; mismo día del mes siguiente aceptada; un día después de eso rechazada (ej. hoy 14/10: 14/11 ✓, 15/11 ✗) | Límite de anticipación | — |
-| 2.5 | Mismo día: 17:30 aceptada / 17:31 rechazada | Hora de corte | Unificar en `validarFechaVisita` con errores tipados (`errors/`) |
+| Commit | Contenido |
+|---|---|
+| `test: reglas de calendario y fecha de visita` | Lunes cerrado; 25/12 y 1/1 cerrados en cualquier año; día normal abierto; fecha con formato inválido rechazada; fecha pasada rechazada; hoy aceptada; mismo día del mes siguiente aceptado y el día después rechazado (14/10 → 14/11 ✓, 15/11 ✗); fin de mes (31/01 → hasta 28/02); mismo día 17:30 ✓ / 17:31 ✗; día siguiente sin límite horario |
+| `feat: determinar días en que el parque está abierto` | `estaAbierto(fecha)` con lunes y `FERIADOS_FIJOS` |
+| `feat: validar ventana de compra y hora de corte` | `validarFechaVisita(fecha, ahora)` con errores tipados en `errors/` |
+| `refactor: …` | Sólo si hace falta (p. ej. extraer helpers de fechas) |
+
+`ahora` es un `Momento` (`{ fecha: 'YYYY-MM-DD', hora: 'HH:mm' }`) que en la Fase 4 provee el `Reloj` inyectado; las reglas no consultan la hora del sistema.
 
 ### Fase 3 – Reglas de cantidad y visitantes (`rules/limites-compra.ts`)
 
-| # | Red | Green | Refactor |
-|---|---|---|---|
-| 3.1 | 0 y 11 entradas rechazadas / 1 y 10 aceptadas | `validarCantidad` | — |
-| 3.2 | Edades 0 y 120 aceptadas; -1, 121 y 10.5 rechazadas | Validación de edad | — |
-| 3.3 | Cada entrada debe tener su tipo de pase; una compra con pases mixtos (VIP + Común) es válida | Validación de pase por entrada | Agrupar en `validarEntradas` |
-| 3.4 | 6 ya compradas + 5 nuevas para la misma fecha → rechazada; 6 + 4 → aceptada | `validarLimiteAcumulado` | — |
+| Commit | Contenido |
+|---|---|
+| `test: reglas de cantidad, edad y tipo de pase` | 0 y 11 entradas rechazadas / 1 y 10 aceptadas; edades 0 y 120 aceptadas, -1, 121 y 10.5 rechazadas; tipo de pase inexistente rechazado; pases mixtos aceptados; límite acumulado 6 + 4 ✓ / 6 + 5 ✗ / 10 + 1 ✗ |
+| `feat: validar cantidad de entradas por compra` | `validarEntradas` con 1 a 10 entradas |
+| `feat: validar edad y tipo de pase por entrada` | Edad entera 0–120 y pase válido en cada entrada |
+| `feat: validar límite acumulado por usuario y fecha` | `validarLimiteAcumulado(yaCompradas, nuevas)` |
 
 ### Fase 4 – Service `CompraService` (con fakes inyectados)
 
@@ -230,7 +230,7 @@ Refactors de frontend según aparezcan (extraer hooks, componentes, etc.).
 | 7.2 | `docs: documento de decisiones de diseño (TP-Grupal_6_Test_Driven_Development_TDD_G3)` |
 | 7.3 | `chore: reporte de cobertura` (opcional) |
 
-**Total estimado:** ~55–65 commits.
+**Total estimado:** ~40 commits (fases 1–3 agrupadas por módulo).
 
 ---
 
@@ -257,3 +257,4 @@ Refactors de frontend según aparezcan (extraer hooks, componentes, etc.).
 - [x] Ventana de compra: desde hoy hasta el mismo día del mes siguiente, inclusive (ej. hoy 14/10 → se puede comprar para el 14/10 hasta el 14/11). Fechas más lejanas se rechazan.
 - [x] Rango de edad válido: número entero entre 0 y 120, inclusive.
 - [x] El tipo de pase (VIP / Común) se elige por cada entrada, no por compra.
+- [x] Si el mes siguiente no tiene ese día, el límite es su último día (ej. hoy 31/01 → hasta 28/02).
