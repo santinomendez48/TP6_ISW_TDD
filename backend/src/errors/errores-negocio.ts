@@ -26,3 +26,5 @@ export class LimiteAcumuladoExcedidoError extends ErrorDeNegocio {}
 export class FormaPagoInvalidaError extends ErrorDeNegocio {}
 
 export class UsuarioNoRegistradoError extends ErrorDeNegocio {}
+
+export class PagoRechazadoError extends ErrorDeNegocio {}
