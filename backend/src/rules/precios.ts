@@ -24,3 +24,10 @@ export function calcularPrecioEntrada(entrada: EntradaSolicitada): number {
 
   return precioBase;
 }
+
+export function calcularTotal(entradas: EntradaSolicitada[]): number {
+  return entradas.reduce(
+    (total, entrada) => total + calcularPrecioEntrada(entrada),
+    0,
+  );
+}
