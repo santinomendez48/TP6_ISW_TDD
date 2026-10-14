@@ -1,0 +1,16 @@
+export class ErrorDeNegocio extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = new.target.name;
+  }
+}
+
+export class FechaInvalidaError extends ErrorDeNegocio {}
+
+export class FechaPasadaError extends ErrorDeNegocio {}
+
+export class FechaFueraDeVentanaError extends ErrorDeNegocio {}
+
+export class ParqueCerradoError extends ErrorDeNegocio {}
+
+export class HorarioDeCompraVencidoError extends ErrorDeNegocio {}

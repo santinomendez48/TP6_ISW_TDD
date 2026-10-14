@@ -40,4 +40,11 @@ export default [
       ],
     },
   },
+  // Los errores de negocio se agrupan en un único archivo
+  {
+    files: ["src/errors/**/*.ts"],
+    rules: {
+      "max-classes-per-file": "off",
+    },
+  },
 ];
