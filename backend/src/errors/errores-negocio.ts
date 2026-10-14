@@ -14,3 +14,5 @@ export class FechaFueraDeVentanaError extends ErrorDeNegocio {}
 export class ParqueCerradoError extends ErrorDeNegocio {}
 
 export class HorarioDeCompraVencidoError extends ErrorDeNegocio {}
+
+export class CantidadInvalidaError extends ErrorDeNegocio {}
