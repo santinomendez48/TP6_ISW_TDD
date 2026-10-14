@@ -1,0 +1,23 @@
+# dependencias
+node_modules
+
+# tests
+coverage
+
+# build
+dist
+build
+
+# entorno
+.env
+.env*.local
+
+# logs
+npm-debug.log*
+
+# editor
+.idea
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.DS_Store
