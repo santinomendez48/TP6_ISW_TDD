@@ -6,23 +6,27 @@ const PRECIOS_BASE: Record<TipoPase, number> = {
   [TipoPase.VIP]: 20000,
 };
 
-const EDAD_MAXIMA_GRATIS = 3;
-const EDAD_MAXIMA_MENOR = 15;
-const EDAD_MINIMA_MAYOR = 60;
-const FACTOR_MEDIO_PRECIO = 0.5;
+interface ReglaDescuento {
+  aplica: (edad: number) => boolean;
+  factor: number;
+}
+
+// El orden importa: se aplica la primera regla que coincide con la edad.
+const REGLAS_DESCUENTO: ReglaDescuento[] = [
+  { aplica: (edad) => edad <= 3, factor: 0 },
+  { aplica: (edad) => edad <= 15, factor: 0.5 },
+  { aplica: (edad) => edad >= 60, factor: 0.5 },
+];
+
+const SIN_DESCUENTO = 1;
+
+function factorPorEdad(edad: number): number {
+  const regla = REGLAS_DESCUENTO.find((r) => r.aplica(edad));
+  return regla ? regla.factor : SIN_DESCUENTO;
+}
 
 export function calcularPrecioEntrada(entrada: EntradaSolicitada): number {
-  const precioBase = PRECIOS_BASE[entrada.tipoPase];
-
-  if (entrada.edad <= EDAD_MAXIMA_GRATIS) {
-    return 0;
-  }
-
-  if (entrada.edad <= EDAD_MAXIMA_MENOR || entrada.edad >= EDAD_MINIMA_MAYOR) {
-    return precioBase * FACTOR_MEDIO_PRECIO;
-  }
-
-  return precioBase;
+  return PRECIOS_BASE[entrada.tipoPase] * factorPorEdad(entrada.edad);
 }
 
 export function calcularTotal(entradas: EntradaSolicitada[]): number {
