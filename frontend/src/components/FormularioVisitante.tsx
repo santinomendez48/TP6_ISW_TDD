@@ -1,4 +1,5 @@
 import type { TipoPase } from "../types";
+import { formatearMonto } from "../utils/formato";
 
 export interface VisitanteForm {
   id: string;
@@ -9,6 +10,8 @@ export interface VisitanteForm {
 interface FormularioVisitanteProps {
   numero: number;
   visitante: VisitanteForm;
+  // Precio cotizado por el servidor; null mientras no esté disponible
+  precio: number | null;
   onCambiar: (visitante: VisitanteForm) => void;
 }
 
@@ -16,14 +19,25 @@ interface FormularioVisitanteProps {
 export default function FormularioVisitante({
   numero,
   visitante,
+  precio,
   onCambiar,
 }: FormularioVisitanteProps) {
   const idEdad = `edad-${visitante.id}`;
   const idPase = `pase-${visitante.id}`;
+  const idTitulo = `visitante-${visitante.id}`;
 
   return (
-    <div className="visitante">
-      <span className="visitante-titulo">Visitante {numero}</span>
+    <div className="visitante" role="group" aria-labelledby={idTitulo}>
+      <div className="visitante-encabezado">
+        <span id={idTitulo} className="visitante-titulo">
+          Visitante {numero}
+        </span>
+        {precio !== null && (
+          <span className="visitante-precio">
+            Precio: {formatearMonto(precio)}
+          </span>
+        )}
+      </div>
       <label htmlFor={idEdad}>
         Edad
         <input

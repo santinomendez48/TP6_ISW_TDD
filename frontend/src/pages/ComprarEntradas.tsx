@@ -8,6 +8,7 @@ import SelectorCantidad from "../components/SelectorCantidad";
 import SelectorFormaPago from "../components/SelectorFormaPago";
 import * as api from "../services/api";
 import type {
+  Cotizacion,
   DiaCalendario,
   EntradaSolicitada,
   FormaPago,
@@ -45,7 +46,12 @@ export default function ComprarEntradas() {
     nuevoVisitante(),
   ]);
   const [formaPago, setFormaPago] = useState<FormaPago | null>(null);
-  const [total, setTotal] = useState<number | null>(null);
+  // Cotización junto con las entradas a las que corresponde, para no mostrar
+  // precios desactualizados mientras llega la respuesta del servidor
+  const [cotizacion, setCotizacion] = useState<{
+    para: EntradaSolicitada[];
+    resultado: Cotizacion;
+  } | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -59,7 +65,7 @@ export default function ComprarEntradas() {
       .catch(() => setError("No se pudo cargar el calendario del parque"));
   }, []);
 
-  // El total lo calcula el servidor, que es quien conoce las reglas de precios
+  // Los precios los calcula el servidor, que es quien conoce las reglas
   useEffect(() => {
     if (!entradas) {
       return undefined;
@@ -67,8 +73,10 @@ export default function ComprarEntradas() {
     let vigente = true;
     api
       .cotizar(entradas)
-      .then((cotizacion) => vigente && setTotal(cotizacion.total))
-      .catch(() => vigente && setTotal(null));
+      .then(
+        (resultado) => vigente && setCotizacion({ para: entradas, resultado }),
+      )
+      .catch(() => vigente && setCotizacion(null));
     return () => {
       vigente = false;
     };
@@ -87,6 +95,9 @@ export default function ComprarEntradas() {
       actuales.map((v) => (v.id === cambiado.id ? cambiado : v)),
     );
   };
+
+  const cotizacionVigente =
+    entradas && cotizacion?.para === entradas ? cotizacion.resultado : null;
 
   const puedeConfirmar = Boolean(fechaVisita && formaPago && entradas);
 
@@ -142,6 +153,7 @@ export default function ComprarEntradas() {
             key={visitante.id}
             numero={indice + 1}
             visitante={visitante}
+            precio={cotizacionVigente?.entradas[indice]?.precio ?? null}
             onCambiar={cambiarVisitante}
           />
         ))}
@@ -156,8 +168,10 @@ export default function ComprarEntradas() {
       )}
 
       <div className="resumen">
-        {entradas && total !== null && (
-          <p className="total">Total: {formatearMonto(total)}</p>
+        {cotizacionVigente && (
+          <p className="total">
+            Total: {formatearMonto(cotizacionVigente.total)}
+          </p>
         )}
         <button
           type="button"

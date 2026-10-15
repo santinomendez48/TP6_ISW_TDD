@@ -352,3 +352,16 @@ button:disabled {
   color: var(--blanco);
   font-weight: 700;
 }
+
+.visitante-encabezado {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.visitante-precio {
+  font-weight: 700;
+  color: var(--verde-hunter);
+}
