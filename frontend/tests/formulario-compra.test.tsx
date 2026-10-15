@@ -218,14 +218,59 @@ describe("Formulario de compra de entradas", () => {
       ).toBeInTheDocument();
     });
 
-    it("no muestra precios mientras falte la edad de algún visitante", async () => {
+    it("muestra el precio de un visitante apenas se completa su edad, aunque falten otros", async () => {
       const user = renderizar();
       await botonDia(/20\/10\/2026/);
       await user.click(botonAgregar());
 
       await completarVisitante(user, 1, "30", "Común");
 
-      expect(screen.queryByText(/^Precio:/)).not.toBeInTheDocument();
+      const visitante1 = screen.getByRole("group", { name: "Visitante 1" });
+      const visitante2 = screen.getByRole("group", { name: "Visitante 2" });
+      expect(
+        await within(visitante1).findByText("Precio: $10.000"),
+      ).toBeInTheDocument();
+      expect(within(visitante2).queryByText(/Precio:/)).not.toBeInTheDocument();
+      expect(screen.getByText("Total: $10.000")).toBeInTheDocument();
+      expect(api.cotizar).toHaveBeenLastCalledWith([
+        { edad: 30, tipoPase: "COMUN" },
+      ]);
+    });
+
+    it("al agregar una entrada mantiene los precios anteriores y actualiza el total al completarla", async () => {
+      const user = renderizar();
+      await botonDia(/20\/10\/2026/);
+      await completarVisitante(user, 1, "30", "Común");
+      expect(await screen.findByText("Total: $10.000")).toBeInTheDocument();
+
+      await user.click(botonAgregar());
+
+      const visitante1 = screen.getByRole("group", { name: "Visitante 1" });
+      expect(
+        within(visitante1).getByText("Precio: $10.000"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Total: $10.000")).toBeInTheDocument();
+
+      await completarVisitante(user, 2, "35", "VIP");
+
+      const visitante2 = screen.getByRole("group", { name: "Visitante 2" });
+      expect(
+        await within(visitante2).findByText("Precio: $20.000"),
+      ).toBeInTheDocument();
+      expect(await screen.findByText("Total: $30.000")).toBeInTheDocument();
+    });
+
+    it("al quitar una entrada el total se actualiza", async () => {
+      const user = renderizar();
+      await botonDia(/20\/10\/2026/);
+      await user.click(botonAgregar());
+      await completarVisitante(user, 1, "30", "Común");
+      await completarVisitante(user, 2, "35", "VIP");
+      expect(await screen.findByText("Total: $30.000")).toBeInTheDocument();
+
+      await user.click(botonQuitar());
+
+      expect(await screen.findByText("Total: $10.000")).toBeInTheDocument();
     });
   });
 
