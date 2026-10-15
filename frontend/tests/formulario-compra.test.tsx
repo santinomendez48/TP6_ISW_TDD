@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -197,6 +197,36 @@ describe("Formulario de compra de entradas", () => {
       { edad: 30, tipoPase: "COMUN" },
       { edad: 35, tipoPase: "VIP" },
     ]);
+  });
+
+  describe("precio individual de cada entrada", () => {
+    it("muestra en cada visitante el precio cotizado por el servidor", async () => {
+      const user = renderizar();
+      await botonDia(/20\/10\/2026/);
+      await user.click(botonAgregar());
+
+      await completarVisitante(user, 1, "30", "Común");
+      await completarVisitante(user, 2, "35", "VIP");
+
+      const visitante1 = screen.getByRole("group", { name: "Visitante 1" });
+      const visitante2 = screen.getByRole("group", { name: "Visitante 2" });
+      expect(
+        await within(visitante1).findByText("Precio: $10.000"),
+      ).toBeInTheDocument();
+      expect(
+        await within(visitante2).findByText("Precio: $20.000"),
+      ).toBeInTheDocument();
+    });
+
+    it("no muestra precios mientras falte la edad de algún visitante", async () => {
+      const user = renderizar();
+      await botonDia(/20\/10\/2026/);
+      await user.click(botonAgregar());
+
+      await completarVisitante(user, 1, "30", "Común");
+
+      expect(screen.queryByText(/^Precio:/)).not.toBeInTheDocument();
+    });
   });
 
   it("envía la compra con la fecha, la forma de pago y cada entrada", async () => {
