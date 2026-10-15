@@ -130,7 +130,7 @@ Los commits se hacen en el orden real en que se trabaja (sin modificar fechas). 
 
 ## 6. Secuencia de ciclos TDD
 
-Para no generar demasiados commits, **en todas las fases los ciclos se agrupan por módulo**: un commit `test:` con todos los tests del módulo (Red), uno o más commits `feat:` que los van haciendo pasar por partes (Green) y un `refactor:` cuando corresponde. Los commits `feat:` intermedios pueden dejar tests del mismo módulo todavía en rojo; el último `feat:` del módulo deja toda la suite en verde.
+Para no generar demasiados commits, **en todas las fases los ciclos se agrupan por módulo**: un commit `test:` con todos los tests del módulo (Red), uno o más commits `feat:` que los van haciendo pasar por partes (Green). **A partir de la Fase 5 no se hacen commits `refactor:` separados**: el código se escribe ya prolijo dentro del `feat:` (Green + Refactor en el mismo commit), y sólo se agrega un `refactor:` si aparece una mejora de diseño importante después de que el módulo quedó en verde. Los commits `feat:` intermedios pueden dejar tests del mismo módulo todavía en rojo; el último `feat:` del módulo deja toda la suite en verde.
 
 Ejemplo de un ciclo en el historial:
 
@@ -165,7 +165,7 @@ refactor: extraer descuentos como lista de reglas
 | `test: reglas de calendario y fecha de visita` | Lunes cerrado; 25/12 y 1/1 cerrados en cualquier año; día normal abierto; fecha con formato inválido rechazada; fecha pasada rechazada; hoy aceptada; mismo día del mes siguiente aceptado y el día después rechazado (14/10 → 14/11 ✓, 15/11 ✗); fin de mes (31/01 → hasta 28/02); mismo día 17:30 ✓ / 17:31 ✗; día siguiente sin límite horario |
 | `feat: determinar días en que el parque está abierto` | `estaAbierto(fecha)` con lunes y `FERIADOS_FIJOS` |
 | `feat: validar ventana de compra y hora de corte` | `validarFechaVisita(fecha, ahora)` con errores tipados en `errors/` |
-| `refactor: …` | Sólo si hace falta (p. ej. extraer helpers de fechas) |
+| `refactor: extraer utilidades de fechas del calendario del parque` | Helpers de fechas a `utils/fechas.ts` |
 
 `ahora` es un `Momento` (`{ fecha: 'YYYY-MM-DD', hora: 'HH:mm' }`) que en la Fase 4 provee el `Reloj` inyectado; las reglas no consultan la hora del sistema.
 
@@ -196,9 +196,7 @@ Incluye las 4 **pruebas de usuario** de la US (marcadas con ★).
 | `test: adaptadores en memoria y simulados` | Repositorios en memoria (guardar, contar por usuario/fecha, buscar usuario); `MercadoPagoSimulado`; `NotificadorMailSimulado`; `RelojSistema` en zona Argentina |
 | `feat: implementar repositorios en memoria e integraciones simuladas` | `repositories/memoria/`, `integrations/`, `config/reloj.ts` |
 | `test: endpoints de compra, cotización y calendario` | `POST /compras` válido → 201; body inválido → 400; errores de negocio → 422; usuario no registrado → 401; pago rechazado → 402; `POST /compras/cotizar` → subtotales y total; `GET /calendario` → días del próximo mes con su estado |
-| `feat: exponer API de compra de entradas` | `dtos/` (zod), `controllers/`, `routes.ts`, `app.ts`, middleware de errores |
-| `feat: exponer cotización y calendario` | Endpoints de cotización y calendario, `calendario.service` |
-| `refactor: …` | Sólo si hace falta (p. ej. mapa error → status) |
+| `feat: exponer API de compra, cotización y calendario` | `dtos/` (zod), `controllers/`, `middlewares/` (errores → status), `routes.ts`, `app.ts`, `server.ts`, `cotizacion.service`, `calendario.service` |
 
 ### Fase 6 – Frontend (Testing Library, API mockeada)
 
@@ -209,7 +207,6 @@ Incluye las 4 **pruebas de usuario** de la US (marcadas con ★).
 | `feat: formulario de compra de entradas` | `Calendario`, `SelectorCantidad`, `FormularioVisitante`, `SelectorFormaPago`, cliente de la API |
 | `test: confirmación de compra y pago simulado` | Con tarjeta muestra "Mercado Pago – Compra exitosa"; la confirmación muestra cantidad y fecha y el modal "Mail enviado a …"; muestra los errores devueltos por la API |
 | `feat: confirmación de compra y pago simulado` | `Confirmacion`, `MercadoPagoSimulado`, manejo de errores |
-| `refactor: …` | Sólo si hace falta (p. ej. extraer hooks) |
 
 ### Fase 7 – Cierre
 
