@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Calendario from "../components/Calendario";
 import FormularioVisitante, {
@@ -28,15 +28,8 @@ function edadValida(edad: string): boolean {
   return /^\d+$/.test(edad) && Number(edad) <= EDAD_MAXIMA;
 }
 
-// Devuelve las entradas listas para enviar, o null si falta alguna edad
-function aEntradas(visitantes: VisitanteForm[]): EntradaSolicitada[] | null {
-  if (!visitantes.every((v) => edadValida(v.edad))) {
-    return null;
-  }
-  return visitantes.map((v) => ({
-    edad: Number(v.edad),
-    tipoPase: v.tipoPase,
-  }));
+function aEntrada(visitante: VisitanteForm): EntradaSolicitada {
+  return { edad: Number(visitante.edad), tipoPase: visitante.tipoPase };
 }
 
 export default function ComprarEntradas() {
@@ -49,14 +42,21 @@ export default function ComprarEntradas() {
   // Cotización junto con las entradas a las que corresponde, para no mostrar
   // precios desactualizados mientras llega la respuesta del servidor
   const [cotizacion, setCotizacion] = useState<{
-    para: EntradaSolicitada[];
+    para: string;
     resultado: Cotizacion;
   } | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const entradas = useMemo(() => aEntradas(visitantes), [visitantes]);
+  // Se cotizan los visitantes que ya tienen la edad completa, así los precios
+  // se van actualizando a medida que se carga cada entrada
+  const completos = visitantes.filter((v) => edadValida(v.edad));
+  // Clave por contenido: agregar una entrada vacía no vuelve a cotizar
+  const claveCotizacion = JSON.stringify(completos.map(aEntrada));
+  // Entradas para enviar: sólo cuando todos los visitantes están completos
+  const entradas =
+    completos.length === visitantes.length ? completos.map(aEntrada) : null;
 
   useEffect(() => {
     api
@@ -67,20 +67,24 @@ export default function ComprarEntradas() {
 
   // Los precios los calcula el servidor, que es quien conoce las reglas
   useEffect(() => {
-    if (!entradas) {
+    const entradasCompletas = JSON.parse(
+      claveCotizacion,
+    ) as EntradaSolicitada[];
+    if (entradasCompletas.length === 0) {
       return undefined;
     }
     let vigente = true;
     api
-      .cotizar(entradas)
+      .cotizar(entradasCompletas)
       .then(
-        (resultado) => vigente && setCotizacion({ para: entradas, resultado }),
+        (resultado) =>
+          vigente && setCotizacion({ para: claveCotizacion, resultado }),
       )
       .catch(() => vigente && setCotizacion(null));
     return () => {
       vigente = false;
     };
-  }, [entradas]);
+  }, [claveCotizacion]);
 
   const cambiarCantidad = (cantidad: number) => {
     setVisitantes((actuales) =>
@@ -97,7 +101,15 @@ export default function ComprarEntradas() {
   };
 
   const cotizacionVigente =
-    entradas && cotizacion?.para === entradas ? cotizacion.resultado : null;
+    cotizacion?.para === claveCotizacion ? cotizacion.resultado : null;
+
+  const precioPorVisitante = new Map<string, number>();
+  completos.forEach((visitante, indice) => {
+    const precio = cotizacionVigente?.entradas[indice]?.precio;
+    if (precio !== undefined) {
+      precioPorVisitante.set(visitante.id, precio);
+    }
+  });
 
   const puedeConfirmar = Boolean(fechaVisita && formaPago && entradas);
 
@@ -153,7 +165,7 @@ export default function ComprarEntradas() {
             key={visitante.id}
             numero={indice + 1}
             visitante={visitante}
-            precio={cotizacionVigente?.entradas[indice]?.precio ?? null}
+            precio={precioPorVisitante.get(visitante.id) ?? null}
             onCambiar={cambiarVisitante}
           />
         ))}
