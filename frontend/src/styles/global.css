@@ -1,0 +1,63 @@
+/* Paleta y fuente definidas por el PO (FAQ 3) */
+:root {
+  --verde-hunter: #386641;
+  --verde-sage: #6a994e;
+  --verde-amarillo: #a7c957;
+  --champagne: #f2e8cf;
+  --ladrillo: #bc4749;
+
+  --texto: #1f2a22;
+  --texto-suave: #4d5a50;
+  --blanco: #ffffff;
+  --deshabilitado: #c9c4b5;
+
+  --radio: 12px;
+  --sombra: 0 4px 16px rgb(56 102 65 / 15%);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Lato", system-ui, sans-serif;
+  color: var(--texto);
+  background: var(--champagne);
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.encabezado {
+  background: var(--verde-hunter);
+  color: var(--champagne);
+  padding: 16px;
+}
+
+.encabezado h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 900;
+}
+
+.contenido {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+}
