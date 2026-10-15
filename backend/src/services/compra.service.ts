@@ -12,12 +12,9 @@ import type { PasarelaPago } from "../integrations/pasarela-pago";
 import type { CompraRepository } from "../repositories/compra.repository";
 import type { UsuarioRepository } from "../repositories/usuario.repository";
 import { validarFechaVisita } from "../rules/calendario-parque";
-import {
-  validarEntradas,
-  validarLimiteAcumulado,
-} from "../rules/limites-compra";
-import { calcularPrecioEntrada, calcularTotal } from "../rules/precios";
+import { validarLimiteAcumulado } from "../rules/limites-compra";
 import { formatearFecha } from "../utils/fechas";
+import cotizar from "./cotizacion.service";
 import {
   construirMailConfirmacion,
   construirMensajeConfirmacion,
@@ -62,12 +59,13 @@ export class CompraService {
 
     const usuario = await this.buscarUsuarioRegistrado(usuarioId);
     const formaPago = CompraService.validarFormaPago(solicitud.formaPago);
-    await this.validarEntradasYFecha(solicitud);
+    // Valida cantidad, edades y tipos de pase, y calcula los precios
+    const cotizacion = cotizar(entradas);
+    await this.validarFechaYLimiteAcumulado(solicitud);
 
-    const total = calcularTotal(entradas);
     const urlRedireccion = await this.cobrar(
       formaPago,
-      total,
+      cotizacion.total,
       usuario,
       solicitud,
     );
@@ -76,11 +74,8 @@ export class CompraService {
       usuarioId,
       fechaVisita,
       formaPago,
-      entradas: entradas.map((e) => ({
-        ...e,
-        precio: calcularPrecioEntrada(e),
-      })),
-      total,
+      entradas: cotizacion.entradas,
+      total: cotizacion.total,
     });
 
     await notificador.enviar(construirMailConfirmacion(compra, usuario));
@@ -116,14 +111,13 @@ export class CompraService {
     return formaPago;
   }
 
-  private async validarEntradasYFecha({
+  private async validarFechaYLimiteAcumulado({
     usuarioId,
     fechaVisita,
     entradas,
   }: SolicitudCompra): Promise<void> {
     const { compraRepository, reloj } = this.dependencias;
 
-    validarEntradas(entradas);
     validarFechaVisita(fechaVisita, reloj.ahora());
     validarLimiteAcumulado(
       await compraRepository.contarEntradasPorUsuarioYFecha(

@@ -28,3 +28,6 @@ export class FormaPagoInvalidaError extends ErrorDeNegocio {}
 export class UsuarioNoRegistradoError extends ErrorDeNegocio {}
 
 export class PagoRechazadoError extends ErrorDeNegocio {}
+
+// El body de la solicitud no tiene el formato esperado
+export class SolicitudInvalidaError extends ErrorDeNegocio {}

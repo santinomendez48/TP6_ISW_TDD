@@ -46,3 +46,9 @@ export function formatearFecha(fecha: string): string {
   const [anio, mes, dia] = fecha.split("-");
   return `${dia}/${mes}/${anio}`;
 }
+
+export function sumarDias(fecha: string, dias: number): string {
+  const resultado = aFechaUTC(fecha);
+  resultado.setUTCDate(resultado.getUTCDate() + dias);
+  return aTexto(resultado);
+}

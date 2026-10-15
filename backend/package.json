@@ -5,6 +5,8 @@
   "description": "Backend de la US Comprar entradas - EcoHarmony Park (TP6 TDD)",
   "type": "module",
   "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
