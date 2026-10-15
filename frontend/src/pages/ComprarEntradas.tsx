@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Calendario from "../components/Calendario";
 import FormularioVisitante, {
   type VisitanteForm,
@@ -6,7 +7,12 @@ import FormularioVisitante, {
 import SelectorCantidad from "../components/SelectorCantidad";
 import SelectorFormaPago from "../components/SelectorFormaPago";
 import * as api from "../services/api";
-import type { DiaCalendario, EntradaSolicitada, FormaPago } from "../types";
+import type {
+  DiaCalendario,
+  EntradaSolicitada,
+  FormaPago,
+  ResultadoCompra,
+} from "../types";
 import { formatearMonto } from "../utils/formato";
 
 const EDAD_MAXIMA = 120;
@@ -41,11 +47,16 @@ export default function ComprarEntradas() {
   const [formaPago, setFormaPago] = useState<FormaPago | null>(null);
   const [total, setTotal] = useState<number | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const entradas = useMemo(() => aEntradas(visitantes), [visitantes]);
 
   useEffect(() => {
-    api.obtenerCalendario().then((calendario) => setDias(calendario.dias));
+    api
+      .obtenerCalendario()
+      .then((calendario) => setDias(calendario.dias))
+      .catch(() => setError("No se pudo cargar el calendario del parque"));
   }, []);
 
   // El total lo calcula el servidor, que es quien conoce las reglas de precios
@@ -79,14 +90,32 @@ export default function ComprarEntradas() {
 
   const puedeConfirmar = Boolean(fechaVisita && formaPago && entradas);
 
+  const irAlSiguientePaso = (resultado: ResultadoCompra) => {
+    const estado = { state: { resultado } };
+
+    if (resultado.urlRedireccion) {
+      // Redirección simulada a Mercado Pago dentro de la misma app (FAQ 4)
+      const { pathname, search } = new URL(resultado.urlRedireccion);
+      navigate(`${pathname}${search}`, estado);
+    } else {
+      navigate("/confirmacion", estado);
+    }
+  };
+
   const confirmar = async () => {
     if (!fechaVisita || !formaPago || !entradas) {
       return;
     }
     setEnviando(true);
+    setError(null);
     try {
-      await api.comprar({ fechaVisita, formaPago, entradas });
-    } finally {
+      irAlSiguientePaso(
+        await api.comprar({ fechaVisita, formaPago, entradas }),
+      );
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudo realizar la compra",
+      );
       setEnviando(false);
     }
   };
@@ -119,6 +148,12 @@ export default function ComprarEntradas() {
       </fieldset>
 
       <SelectorFormaPago formaPago={formaPago} onSeleccionar={setFormaPago} />
+
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
 
       <div className="resumen">
         {entradas && total !== null && (

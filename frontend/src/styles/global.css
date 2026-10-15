@@ -257,3 +257,98 @@ button:disabled {
     width: 100%;
   }
 }
+
+/* ---------- Errores ---------- */
+
+.error {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--ladrillo);
+  border-radius: 8px;
+  background: rgb(188 71 73 / 10%);
+  color: var(--ladrillo);
+  font-weight: 700;
+}
+
+/* ---------- Confirmación y modal del mail ---------- */
+
+.confirmacion {
+  text-align: center;
+}
+
+.confirmacion h2 {
+  color: var(--verde-hunter);
+}
+
+.confirmacion-mensaje {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.confirmacion .boton-principal {
+  display: inline-block;
+  margin-top: 8px;
+  text-decoration: none;
+}
+
+.modal-fondo {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(31 42 34 / 55%);
+}
+
+.modal {
+  width: 100%;
+  max-width: 360px;
+  padding: 24px;
+  border-radius: var(--radio);
+  background: var(--blanco);
+  box-shadow: var(--sombra);
+  text-align: center;
+}
+
+.modal h3 {
+  margin-top: 0;
+  color: var(--verde-hunter);
+}
+
+/* ---------- Pasarela de pago simulada ---------- */
+
+.mercado-pago {
+  max-width: 420px;
+  margin: 32px auto;
+  padding: 24px;
+  border-radius: var(--radio);
+  background: var(--blanco);
+  box-shadow: var(--sombra);
+  text-align: center;
+}
+
+.mercado-pago h2 {
+  margin-top: 0;
+  color: #1f4e79;
+}
+
+.mercado-pago-estado {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--verde-hunter);
+}
+
+.mercado-pago-monto {
+  font-size: 2rem;
+  font-weight: 900;
+}
+
+.boton-mercado-pago {
+  min-height: 48px;
+  padding: 12px 24px;
+  border: 0;
+  border-radius: var(--radio);
+  background: #1f4e79;
+  color: var(--blanco);
+  font-weight: 700;
+}
