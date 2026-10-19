@@ -22,6 +22,7 @@ import {
 
 export interface SolicitudCompra {
   usuarioId: number;
+  email?: string;
   fechaVisita: string;
   formaPago?: FormaPago;
   entradas: EntradaSolicitada[];
@@ -57,7 +58,11 @@ export class CompraService {
     const { compraRepository, notificador } = this.dependencias;
     const { usuarioId, fechaVisita, entradas } = solicitud;
 
-    const usuario = await this.buscarUsuarioRegistrado(usuarioId);
+    const usuarioRegistrado = await this.buscarUsuarioRegistrado(usuarioId);
+    const usuario = {
+      ...usuarioRegistrado,
+      email: solicitud.email ?? usuarioRegistrado.email,
+    };
     const formaPago = CompraService.validarFormaPago(solicitud.formaPago);
     // Valida cantidad, edades y tipos de pase, y calcula los precios
     const cotizacion = cotizar(entradas);

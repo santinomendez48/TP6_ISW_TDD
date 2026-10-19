@@ -31,6 +31,7 @@ export default function crearCompraController(compraService: CompraService) {
       // El tipo de pase y la forma de pago se validan en rules/ y services/
       const resultado = await compraService.comprar({
         usuarioId,
+        email: body.email,
         fechaVisita: body.fechaVisita,
         formaPago: body.formaPago as FormaPago | undefined,
         entradas: body.entradas as EntradaSolicitada[],

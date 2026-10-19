@@ -12,8 +12,14 @@ build
 .env
 .env*.local
 
+# base de datos local
+*.db
+*.db-shm
+*.db-wal
+
 # logs
 npm-debug.log*
+*.log
 
 # editor
 .idea

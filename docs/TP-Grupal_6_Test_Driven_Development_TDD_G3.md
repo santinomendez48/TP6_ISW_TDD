@@ -50,6 +50,8 @@ obtenida.
 | Tests de UI | Testing Library + user-event + jsdom | Prueba la interfaz como la usa el visitante (roles, etiquetas, clicks) |
 | Backend | Node.js + Express 5 | Simple y conocido; maneja errores de handlers `async` |
 | Validación de entrada | Zod | Valida la forma del body en los DTOs |
+| Persistencia | SQLite (`better-sqlite3`) | Base embebida en un archivo: no requiere instalar un servidor de base de datos |
+| Envío de mails | Resend | API simple para enviar el mail de confirmación; si no hay API key se usa el notificador simulado |
 | Frontend | React 19 + Vite + React Router | SPA web responsive (FAQ 24) |
 | Estilo de código | ESLint con **guía Airbnb** (`eslint-config-airbnb-extended`) + Prettier | Guía de estilo elegida por el grupo; se verifica con `npm run lint` |
 
@@ -78,8 +80,9 @@ flowchart TD
         P --> REPO["repositories/<br/>CompraRepository · UsuarioRepository"]
         P --> INT["integrations/<br/>PasarelaPago · Notificador"]
         P --> RELOJ["config/<br/>Reloj"]
-        REPO -.implementa.-> MEM["repositories/memoria/"]
-        INT -.implementa.-> SIM["MercadoPagoSimulado<br/>NotificadorMailSimulado"]
+        REPO -.implementa.-> SQL["repositories/sqlite/<br/>(app real)"]
+        REPO -.implementa.-> MEM["repositories/memoria/<br/>(tests)"]
+        INT -.implementa.-> SIM["MercadoPagoSimulado<br/>NotificadorResend · NotificadorMailSimulado"]
         RELOJ -.implementa.-> RS["RelojSistema (zona AR)"]
         MW["middlewares/<br/>errores → status HTTP"]
     end
@@ -91,8 +94,9 @@ flowchart TD
 | `rules/` | Reglas de negocio puras, sin dependencias de infraestructura |
 | `errors/` | Un error tipado por regla incumplida (`ParqueCerradoError`, `CantidadInvalidaError`…) |
 | `services/` | Casos de uso: orquestan reglas y puertos |
-| `repositories/` | Interfaces de persistencia + implementación en memoria |
-| `integrations/` | Interfaces de Mercado Pago y mail + implementaciones simuladas |
+| `repositories/` | Interfaces de persistencia + implementaciones SQLite (aplicación real) y en memoria (tests) |
+| `database/` | Creación de la base SQLite y su esquema (`usuarios`, `compras`, `entradas`) |
+| `integrations/` | Interfaces de Mercado Pago y mail + Mercado Pago simulado, notificador con Resend y notificador simulado |
 | `config/` | `Reloj`: fecha y hora actuales en la zona horaria del parque |
 | `dtos/` | Forma del body de cada request |
 | `controllers/` · `routes.ts` · `app.ts` | Capa HTTP |
@@ -113,7 +117,7 @@ escrito con TDD: el resto del sistema se construyó sobre reglas ya probadas.
 
 `CompraService` recibe `CompraRepository`, `UsuarioRepository`, `PasarelaPago`, `Notificador`
 y `Reloj`. En los tests se le pasan dobles (`vi.fn`) o los adaptadores en memoria; en
-`server.ts`, las implementaciones simuladas. Esto permite verificar, por ejemplo, que **si una
+`server.ts`, los repositorios SQLite, el notificador de Resend y el Mercado Pago simulado. Esto permite verificar, por ejemplo, que **si una
 validación falla no se cobra, no se registra y no se envía mail**.
 
 ### D3. El tiempo es una dependencia (`Reloj` / `Momento`)
@@ -148,18 +152,29 @@ probada en el service, independiente de la capa HTTP.
 Se valida todo antes de cobrar. Se cobra antes de registrar: si Mercado Pago rechaza el pago
 no queda una compra registrada sin pagar. El mail se envía sólo después de registrar.
 
-### D7. Integraciones simuladas detrás de interfaces
+### D7. Integraciones detrás de interfaces
 
-Mercado Pago y el envío de mails están simulados, como habilita el PO (FAQ 4 y 5).
-`MercadoPagoSimulado` devuelve la URL de una pantalla "Mercado Pago – Compra exitosa" y el
-mail se muestra en un modal "Mail enviado a …" y por consola. Reemplazarlos por los reales
-sólo requiere otra implementación de la interfaz, sin tocar el service.
+Mercado Pago está simulado, como habilita el PO (FAQ 4): `MercadoPagoSimulado` aprueba el
+pago y devuelve la URL de una pantalla "Mercado Pago – Compra exitosa" a la que redirige el
+frontend.
 
-### D8. Persistencia en memoria y sesión mockeada
+El mail de confirmación se envía de verdad con Resend (`NotificadorResend`) cuando hay una
+`RESEND_API_KEY` configurada; si no, `NotificadorMailSimulado` lo imprime por consola (FAQ 5).
+En los dos casos la app muestra un modal "Mail enviado a …". La elección se resuelve en
+`server.ts`, sin tocar el service: es justamente lo que permite la interfaz `Notificador`.
 
-La consigna no exige base de datos y el PO permite mockear la sesión (FAQ 19). El repositorio
-en memoria cumple la misma interfaz que tendría uno real. El usuario logueado se identifica
-con el header `x-usuario-id`.
+### D8. Persistencia en SQLite y sesión mockeada
+
+Las compras y sus entradas se guardan en SQLite (`repositories/sqlite/`), por lo que se
+conservan al reiniciar el backend. Una compra y sus entradas se guardan en una única
+transacción. Los repositorios en memoria cumplen la misma interfaz y se siguen usando en los
+tests de la API, que así no dependen de un archivo de base de datos; los
+repositorios SQLite se prueban aparte contra una base `:memory:`.
+
+El PO permite mockear la sesión (FAQ 19): al iniciar, el backend precarga el usuario de
+prueba (`TEST_USER_NAME` / `TEST_USER_EMAIL`) y el usuario logueado se identifica con el
+header `x-usuario-id`. El correo al que se envía la confirmación se ingresa en el formulario
+de compra.
 
 ### D9. El precio se calcula sólo en el backend
 
@@ -216,7 +231,8 @@ táctiles de al menos 44 px (FAQ 24).
 | Sesión | Usuario único mockeado, identificado por el header `x-usuario-id`. |
 | Pago con tarjeta | Los datos de la tarjeta se ingresan en Mercado Pago; el sistema sólo envía el monto y recibe la URL de redirección. |
 | Mail con pago en efectivo | También se envía la confirmación (el criterio de aceptación no distingue forma de pago). |
-| Persistencia | En memoria; se pierde al reiniciar el backend. |
+| Persistencia | SQLite en un archivo local (`DATABASE_PATH`); se conserva al reiniciar el backend. |
+| Correo de confirmación | Se ingresa en el formulario de compra; si no llega en la solicitud, se usa el email del usuario de la sesión. |
 
 ---
 
@@ -292,11 +308,13 @@ comportamiento que el código anterior ya tenía, y se mantiene para evitar regr
 | Backend | `tests/rules/limites-compra.test.ts` | 17 |
 | Backend | `tests/services/compra.service.test.ts` | 15 |
 | Backend | `tests/adapters/adaptadores.test.ts` | 10 |
+| Backend | `tests/adapters/sqlite.test.ts` | 5 |
+| Backend | `tests/adapters/notificador-resend.test.ts` | 3 |
 | Backend | `tests/api/api.test.ts` | 17 |
 | Backend | `tests/smoke.test.ts` | 1 |
 | Frontend | `tests/formulario-compra.test.tsx` | 15 |
 | Frontend | `tests/flujo-compra.test.tsx` | 7 |
-| **Total** | | **122** |
+| **Total** | | **130** |
 
 Todos los tests pasan.
 
@@ -304,13 +322,13 @@ Todos los tests pasan.
 
 | Métrica | Cobertura |
 |---|---:|
-| Sentencias | 91,8 % |
-| Ramas | 80,5 % |
-| Funciones | 95,5 % |
-| Líneas | 92,2 % |
+| Sentencias | 89,9 % |
+| Ramas | 72,7 % |
+| Funciones | 96,3 % |
+| Líneas | 90,2 % |
 
-`rules/`, `entities/`, `errors/`, `repositories/`, `controllers/`, `utils/` y los servicios de
-compra y cotización tienen **100 %**. Las partes no cubiertas son:
+`rules/`, `entities/`, `errors/`, `repositories/` (en memoria y SQLite), `controllers/`,
+`utils/`, el notificador de Resend y los servicios de compra y cotización tienen **100 %**. Las partes no cubiertas son:
 
 - `server.ts` (0 %): composición de dependencias de la aplicación real; se verificó levantando
   el servidor manualmente.
@@ -320,6 +338,8 @@ compra y cotización tienen **100 %**. Las partes no cubiertas son:
 - `services/calendario.service.ts` (93 %): la rama que relanza un error que no es de negocio.
 - `integrations/notificador-mail-simulado.ts` (80 %): la impresión por consola, que sólo se
   activa en el servidor real.
+- `database/sqlite.ts` (90 %): la creación de la carpeta del archivo de base de datos; los
+  tests usan una base `:memory:`.
 - `config/reloj.ts` (86 % de sentencias): el valor por defecto `new Date()`; los tests
   inyectan una fecha fija.
 

@@ -9,6 +9,7 @@ Ingeniería y Calidad de Software · UTN FRC · Curso 4K3 · Grupo 3 · 2026
 |---|---|
 | [`consigna.md`](./consigna.md) | Consigna del TP, dominio, FAQ del PO y la User Story |
 | [`PLAN.md`](./PLAN.md) | Plan de implementación y secuencia de ciclos TDD |
+| [`INSTALACION_Y_EJECUCION.md`](./INSTALACION_Y_EJECUCION.md) | Guía detallada de instalación, configuración (`.env`) y ejecución |
 | [`docs/TP-Grupal_6_Test_Driven_Development_TDD_G3.md`](./docs/TP-Grupal_6_Test_Driven_Development_TDD_G3.md) | Decisiones de diseño, evidencia del ciclo TDD y cobertura |
 
 ---
@@ -23,6 +24,13 @@ Ingeniería y Calidad de Software · UTN FRC · Curso 4K3 · Grupo 3 · 2026
 ```bash
 cd backend && npm install
 cd ../frontend && npm install
+```
+
+Después se crea el archivo de configuración del backend a partir de la plantilla y
+se completan los valores (ver [Variables de entorno](#variables-de-entorno)):
+
+```powershell
+Copy-Item backend\.env.example backend\.env
 ```
 
 ## Ejecución
@@ -41,20 +49,37 @@ npm run dev
 
 Abrir http://localhost:5173 en el navegador.
 
-- El usuario está **mockeado** (FAQ 19): la sesión corresponde siempre a
-  `visitante@ecoharmony.test`.
-- **Mercado Pago** y el **envío de mails** están simulados (FAQ 4 y 5): el pago con
-  tarjeta redirige a una pantalla "Mercado Pago – Compra exitosa" y el mail se
-  muestra en un modal en la app y por la consola del backend.
-- Los datos se guardan **en memoria**: se pierden al reiniciar el backend.
+- El usuario está **mockeado** (FAQ 19): la sesión corresponde siempre al usuario
+  de prueba configurado en `TEST_USER_NAME` / `TEST_USER_EMAIL`. El correo al que
+  se envía la confirmación se ingresa en el formulario de compra.
+- **Mercado Pago** está simulado (FAQ 4): el pago con tarjeta se aprueba y la app
+  redirige a una pantalla "Mercado Pago – Compra exitosa".
+- El **mail de confirmación** se envía con [Resend](https://resend.com) si hay una
+  `RESEND_API_KEY` configurada. Si no, se simula por la consola del backend (FAQ 5).
+  En ambos casos la app muestra un modal "Mail enviado a …".
+- Los datos se guardan en una base **SQLite** (por defecto
+  `backend/data/ecoharmony.db`), así que se conservan al reiniciar el backend.
 
-### Variables de entorno (opcionales)
+### Variables de entorno
+
+El backend las lee de `backend/.env` (plantilla: `backend/.env.example`). Todas son
+opcionales.
 
 | Variable | Dónde | Por defecto |
 |---|---|---|
 | `PORT` | backend | `3000` |
 | `URL_FRONTEND` | backend (URL de redirección de Mercado Pago) | `http://localhost:5173` |
+| `DATABASE_PATH` | backend (archivo SQLite) | `./data/ecoharmony.db` |
+| `TEST_USER_NAME` | backend (usuario de la sesión mockeada) | `Visitante de prueba` |
+| `TEST_USER_EMAIL` | backend (usuario de la sesión mockeada) | `visitante@ecoharmony.test` |
+| `RESEND_API_KEY` | backend (envío real de mails) | vacío → mail simulado por consola |
+| `RESEND_FROM` | backend (remitente de los mails) | `EcoHarmony Park <onboarding@resend.dev>` |
 | `VITE_URL_API` | frontend | `http://localhost:3000/api` |
+
+La API key de Resend es personal: cada integrante usa la suya y **nunca se sube al
+repositorio** (`backend/.env` está en el `.gitignore`). Con el remitente
+`onboarding@resend.dev`, Resend sólo entrega mails al correo de la cuenta dueña de
+la API key.
 
 ## Tests y calidad de código
 
@@ -80,11 +105,12 @@ npm run test:coverage  # reporte de cobertura (texto + HTML en coverage/)
 │   ├── src/
 │   │   ├── controllers/     # HTTP → service; sesión simulada (header x-usuario-id)
 │   │   ├── services/        # casos de uso: compra, cotización, calendario
-│   │   ├── repositories/    # interfaces + implementaciones en memoria
+│   │   ├── repositories/    # interfaces + implementaciones SQLite y en memoria (tests)
+│   │   ├── database/        # creación del esquema SQLite
 │   │   ├── dtos/            # forma del body (zod)
 │   │   ├── entities/        # TipoPase, FormaPago, Compra, Usuario, Momento…
 │   │   ├── rules/           # reglas de negocio puras: precios, calendario, límites
-│   │   ├── integrations/    # pasarela de pago y notificador (interfaces + simulados)
+│   │   ├── integrations/    # pasarela de pago (simulada) y notificador (Resend / simulado)
 │   │   ├── config/          # Reloj (zona horaria Argentina)
 │   │   ├── errors/          # errores de negocio tipados
 │   │   ├── middlewares/     # errores de negocio → status HTTP

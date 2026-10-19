@@ -10,6 +10,7 @@ const entradaSchema = z.object({
 export const compraRequestSchema = z.object({
   fechaVisita: z.string(),
   formaPago: z.string().optional(),
+  email: z.string().email().optional(),
   entradas: z.array(entradaSchema),
 });
 

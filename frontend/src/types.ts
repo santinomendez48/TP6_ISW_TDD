@@ -27,6 +27,7 @@ export interface Cotizacion {
 }
 
 export interface SolicitudCompra {
+  email: string;
   fechaVisita: string;
   formaPago: FormaPago;
   entradas: EntradaSolicitada[];
