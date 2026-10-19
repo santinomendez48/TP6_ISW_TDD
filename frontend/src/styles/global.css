@@ -99,6 +99,12 @@ button:disabled {
   color: var(--verde-hunter);
 }
 
+.dia.dia-seleccionado:hover:not(:disabled) {
+  background: var(--verde-hunter);
+  border-color: var(--verde-hunter);
+  color: var(--champagne);
+}
+
 .dia:hover:not(:disabled) {
   background: var(--champagne);
 }

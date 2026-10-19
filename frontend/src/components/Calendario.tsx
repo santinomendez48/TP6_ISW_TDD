@@ -23,7 +23,7 @@ export default function Calendario({
             <button
               key={fecha}
               type="button"
-              className="dia"
+              className={`dia ${fecha === seleccionada ? "dia-seleccionado" : ""}`}
               disabled={!habilitado}
               title={motivo}
               aria-pressed={fecha === seleccionada}
